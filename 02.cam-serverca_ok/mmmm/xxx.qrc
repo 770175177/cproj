@@ -1,0 +1,21 @@
+<RCC>
+    <qresource prefix="/">
+        <file>1.png</file>
+        <file>chufa.jpg</file>
+        <file>chufang1.jpg</file>
+        <file>keting.jpg</file>
+        <file>keting1.jpg</file>
+        <file>quanjing.jpg</file>
+        <file>wos.jpg</file>
+        <file>wosh2.jpg</file>
+        <file>woshi1 .jpg</file>
+        <file>woshi2.jpg</file>
+        <file>cai.jpg</file>
+        <file>den.jpg</file>
+        <file>men.jpg</file>
+        <file>dians.jpg</file>
+        <file>chumm.jpg</file>
+        <file>df.jpg</file>
+        <file>timg.jpg</file>
+    </qresource>
+</RCC>

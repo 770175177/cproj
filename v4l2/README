@@ -1,0 +1,1011 @@
+https://blog.csdn.net/u010783226/article/details/122260974
+CSDN首页
+博客
+下载
+学习
+社区
+GitCode
+云服务
+猿如意
+v4l2
+ 搜索
+
+会员中心 
+足迹
+动态
+消息
+创作中心 
+发布
+深入学习Linux摄像头（一）v4l2应用编程
+
+bobuddy
+
+于 2021-12-31 18:40:14 发布
+
+3981
+ 收藏 38
+分类专栏： linux 摄像头 文章标签： linux camera
+版权
+
+华为云开发者联盟
+该内容已被华为云开发者联盟社区收录，社区免费抽大奖🎉，赢华为平板、Switch等好礼！
+加入社区
+
+linux
+169 篇文章18 订阅
+订阅专栏
+
+摄像头
+20 篇文章12 订阅
+订阅专栏
+深入学习Linux摄像头（一）v4l2应用编程
+一、什么是v4l2
+二、v4l2 API介绍
+2.1 Querying Capabilities
+2.2 Application Priority
+2.3 Device Inputs and Outputs
+2.4 Video Standards
+2.5 Camera Control Reference
+2.6 Image Format
+2.7 Cropping, composing and scaling
+2.8 Input/Output
+三、v4l2设备操作流程
+step1：打开设备
+step 2：查询设备功能
+step 3：设置输入设备
+step 4：设置图像格式
+step 5：设置缓存
+step 6：打开设备
+step 7：读取数据
+step 8：关闭设备
+libv4l2
+四、v4l2采集图像在frame buffer显示
+五、v4l2采集图像使用Qt显示
+
+一、什么是v4l2
+vl42是video for Linux 2的缩写，是一套Linux内核视频设备的驱动框架，该驱动框架为应用层提供一套统一的操作接口(一系列的ioctl)
+
+V4L2在设计时，是要支持很多广泛的设备的，它们之中只有一部分在本质上是真正的视频设备，可以支持多种设备,它可以有以下几种接口
+
+video capture interface：视频采集接口，这种接口应用于摄像头，v4l2在最初设计的时候就是应用于这种功能
+
+video output interface：视频输出接口，将静止图像或图像序列编码为模拟视频信号，通过此接口，应用程序可以控制编码过程并将图像从用户空间移动到驱动程序
+
+video overlay interface：视频直接传输接口，可以将采集到的视频数据直接传输到显示设备，不需要cpu参与，这种方式的显示图像的效率比其他方式高得多
+
+其他接口这里就不介绍了，下面来看一下v4l2的API
+
+二、v4l2 API介绍
+对V4L2设备进行编程包括以下步骤
+
+打开设备
+更改设备属性，选择视频和音频输入，视频标准，图片亮度等
+设置数据格式
+设置输入/输出方法
+输入/输出缓存队列循环
+关闭设备
+其中大多数操作都是通过应用层调用ioctl实现的，可以将这些ioctl分为下面几类
+
+2.1 Querying Capabilities
+查询设备的功能
+
+由于V4L2涵盖了各种各样的设备，因此并非API的所有方面都适用于所有类型的设备，在使用v4l2设备时，必须调用此API，获得设备支持的功能（capture、output、overlay…）
+
+ID    描述
+VIDIOC_QUERYCAP    查询设备功能
+注：可以点击名称查看API讲解
+
+2.2 Application Priority
+应用优先级
+
+当多个应用程序共享设备时，可能需要为它们分配不同的优先级。视频录制应用程序可以例如阻止其他应用程序改变视频控制或切换当前的电视频道。另一个目标是允许在后台工作的低优先级应用程序，这些应用程序可以被用户控制的应用程序抢占，并在以后自动重新获得对设备的控制
+
+ID    描述
+VIDIOC_G_PRIORITY    获取优先级
+VIDIOC_S_PRIORITY    设置优先级
+2.3 Device Inputs and Outputs
+输入和输出设备
+
+ID    描述
+VIDIOC_ENUMINPUT    枚举视频输入设备
+VIDIOC_G_INPUT    获取当前的视频输入设备
+VIDIOC_S_INPUT    设置视频输入设备
+VIDIOC_ENUMOUTPUT    枚举视频输出设备
+VIDIOC_G_OUTPUT    获取当前视频输出设备
+VIDIOC_S_OUTPUT    设置视频输出设备
+VIDIOC_ENUMAUDIO    枚举音频输入设备
+VIDIOC_G_AUDIO    获取当前音频输入设备
+VIDIOC_S_AUDIO    设置音频输入设备
+VIDIOC_ENUMAUDOUT    枚举音频输出设备
+VIDIOC_G_OUTPUT    获取音频输出设备
+VIDIOC_S_AUDOUT    设置音频输出设备
+2.4 Video Standards
+视频标准
+
+ID    描述
+VIDIOC_ENUMSTD    枚举设备支持的所有标准
+VIDIOC_G_STD    获取当前正在使用的标准
+VIDIOC_S_STD    设置视频标准
+VIDIOC_QUERYSTD    有的设备支持自动侦测输入源的视频标准，此ioctl获取检测到的标准
+2.5 Camera Control Reference
+控制属性
+
+ID    描述
+VIDIOC_QUERYCTRL    查询指定的control详细信息
+VIDIOC_QUERYMENU    查询menu
+VIDIOC_G_CTRL    获取设备指定control的当前信息
+VIDIOC_S_CTRL    设置设备指定的control
+2.6 Image Format
+图像格式
+
+图像由多种格式YUV和RGB还有压缩格式等等，其中每种格式又分有多种格式，比如RGB：RGB565、RGB888…
+
+所以在使用设备时，需要对格式进行设置
+
+ID    描述
+VIDIOC_ENUM_FMT    枚举设备支持的图像格式
+VIDIOC_G_FMT    获取当前设备的图像格式
+VIDIOC_S_FMT    设置图像格式
+VIDIOC_TRY_FMT    测试设备是否支持此格式
+2.7 Cropping, composing and scaling
+图像裁剪、插入与缩放
+
+ID    描述
+VIDIOC_CROPCAP    获取图像裁剪缩放能力
+VIDIOC_G_CROP    获取当前的裁剪矩阵
+VIDIOC_S_CROP    设置裁剪矩阵
+2.8 Input/Output
+数据的输入和输出
+
+内核中使用缓存队列对图像数据进行管理，用户空间获取图像数据有两种方式，一种是通过read、write方式读取内核空间的缓存，一种是将内核空间的缓存映射到用户空间。在操作v4l2设备时，通过VIDIOC_QUERYCAP获取设备支持哪种方式
+
+ID    描述
+VIDIOC_REQBUFS    申请缓存
+VIDIOC_QUERYBUF    获取缓存信息
+VIDIOC_QBUF    将缓存放入队列中
+VIDIOC_DQBUF    将缓存从队列中取出
+ioctl API就先介绍到这里，还有非常多的接口这里就不一一介绍了，具体可以查看V4L2 Function Reference
+
+下面来讲一讲如何使用这些接口
+
+三、v4l2设备操作流程
+
+V4L2支持多种接口：capture(捕获)、output(输出)、overlay(预览)等等
+
+这里讲解如何使用capture功能，下面讲解操作流程
+
+step1：打开设备
+在Linux中，视频设备节点为/dev/videox，使用open函数将其打开
+
+int fd = open(name, flag);
+if(fd < 0)
+{
+    printf("ERR(%s):failed to open %s\n", __func__, name);
+    return -1;
+}
+
+return fd;
+
+step 2：查询设备功能
+if (ioctl(fd, VIDIOC_QUERYCAP, cap) < 0)
+{
+    printf("ERR(%s):VIDIOC_QUERYCAP failed\n", __func__);
+    return -1;
+}
+
+看一看v4l2_capability
+
+struct v4l2_capability {
+    __u8    driver[16];    /* i.e. "bttv" */
+    __u8    card[32];    /* i.e. "Hauppauge WinTV" */
+    __u8    bus_info[32];    /* "PCI:" + pci_name(pci_dev) */
+    __u32   version;        /* should use KERNEL_VERSION() */
+    __u32    capabilities;    /* Device capabilities */
+    __u32    reserved[4];
+};
+
+其中最重要的是capabilities字段，这个字段标记着v4l2设备的功能，capabilities有以下部分标记位
+
+ID    描述符
+V4L2_CAP_VIDEO_CAPTURE    设备支持捕获功能
+V4L2_CAP_VIDEO_OUTPUT    设备支持输出功能
+V4L2_CAP_VIDEO_OVERLAY    设备支持预览功能
+V4L2_CAP_STREAMING    设备支持流读写
+V4L2_CAP_READWRITE    设备支持read、write方式读写
+我们可以通过这样子去判断设备的功能
+
+
+if(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)
+    printf("v4l2 dev support capture\n");
+
+if(cap.capabilities & V4L2_CAP_VIDEO_OUTPUT)
+    printf("v4l2 dev support output\n");
+
+if(cap.capabilities & V4L2_CAP_VIDEO_OVERLAY)
+    printf("v4l2 dev support overlay\n");
+
+if(cap.capabilities & V4L2_CAP_STREAMING)
+    printf("v4l2 dev support streaming\n");
+
+if(cap.capabilities & V4L2_CAP_READWRITE)
+    printf("v4l2 dev support read write\n");
+
+step 3：设置输入设备
+一个设备可能有多个输入，比如：在芯片上，摄像头控制器和摄像头接口是分离的，需要选择哪一个摄像头接口作为摄像头控制器的输入源
+
+当然，并不是所有的设备都需要设置输入，比如：uvc摄像头，一般只有一个输入，默认就会选择，不需要设置
+
+下面介绍如何设置输入设备
+
+1.枚举输入设备
+
+下面这段程序枚举了该设备所有的输入源，并打印输入源的名称
+
+struct v4l2_input input;
+
+input.index = 0;
+while (!ioctl(fd, VIDIOC_ENUMINPUT, &input))
+{
+    printf("input:%s\n", input.name);
+    ++input.index;
+}
+
+2.设置输入设备
+
+struct v4l2_input input;
+
+input.index = index; //指定输入设备
+
+if (ioctl(fd, VIDIOC_S_INPUT, &input) < 0)
+{
+    printf("ERR(%s):VIDIOC_S_INPUT failed\n", __func__);
+    return -1;
+}
+
+step 4：设置图像格式
+有的摄像头支持多种像素格式，有的摄像头只支持一种像素格式，在设置格式之前，要先枚举出所有的格式，看一看是否支持要设置的格式，然后再进一步设置
+
+1.枚举支持的像素格式
+
+struct v4l2_fmtdesc fmtdesc;
+
+fmtdesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+fmtdesc.index = 0;
+
+while (!ioctl(fd, VIDIOC_ENUM_FMT, &fmtdesc))
+{
+    printf("fmt:%s\n", fmtdesc.description);
+
+    fmtdesc.index++;
+}
+
+2.设置像素格式
+
+struct v4l2_format v4l2_fmt;
+
+memset(&v4l2_fmt, 0, sizeof(struct v4l2_format));
+v4l2_fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE; 
+v4l2_fmt.fmt.pix.width = width; //宽度
+v4l2_fmt.fmt.pix.height = height; //高度
+v4l2_fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV; //像素格式
+v4l2_fmt.fmt.pix.field = V4L2_FIELD_ANY;
+
+if (ioctl(fd, VIDIOC_S_FMT, &v4l2_fmt) < 0)
+{
+    printf("ERR(%s):VIDIOC_S_FMT failed\n", __func__);
+    return -1;
+}
+
+step 5：设置缓存
+
+
+v4l2设备读取数据的方式有两种，一种是read方式，一种是streaming方式，具体需要看step 2的返回结果是支持V4L2_CAP_READWRITE还是V4L2_CAP_STREAMING
+
+read方式很容易理解，就是通过read函数读取，那么streaming是什么意思呢？
+
+streaming就是在内核空间中维护一个缓存队列，然后将内存映射到用户空间，应用读取图像数据就是一个不断地出队列和入队列的过程，如下图所示
+
+
+
+ 
+
+下面讲解如何去申请和映射缓存
+
+1.申请缓存
+
+struct v4l2_requestbuffers req;
+
+req.count = nr_bufs; //缓存数量
+req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+req.memory = V4L2_MEMORY_MMAP;
+
+if (ioctl(fd, VIDIOC_REQBUFS, &req) < 0)
+{
+    printf("ERR(%s):VIDIOC_REQBUFS failed\n", __func__);
+    return -1;
+}
+
+2.映射缓存
+
+为什么要映射缓存？
+
+因为如果使用read方式读取的话，图像数据是从内核空间拷贝会应用空间，而一副图像的数据一般来讲是比较大的，所以效率会比较低。而如果使用映射的方式，讲内核空间的内存应用到用户空间，那么用户空间读取数据就想在操作内存一样，不需要经过内核空间到用户空间的拷贝，大大提高效率
+
+映射缓存需要先查询缓存信息，然后再使用缓存信息进行映射，下面是一个例子
+
+struct v4l2_buffer v4l2_buffer;
+void* addr;
+
+memset(&v4l2_buffer, 0, sizeof(struct v4l2_buffer));
+v4l2_buffer.index = i; //想要查询的缓存
+v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+v4l2_buffer.memory = V4L2_MEMORY_MMAP;
+
+/* 查询缓存信息 */
+ret = ioctl(fd, VIDIOC_QUERYBUF, &v4l2_buffer);
+if(ret < 0)
+{
+    printf("Unable to query buffer.\n");
+    return -1;
+}
+
+/* 映射 */
+addr = mmap(NULL /* start anywhere */ ,
+            v4l2_buffer.length, PROT_READ | PROT_WRITE, MAP_SHARED,
+            fd, v4l2_buffer.m.offset);
+
+注：需要将所有申请的缓存使用上述方法进行映射
+
+3.将所有的缓存放入队列
+
+struct v4l2_buffer v4l2_buffer;
+
+for(i = 0; i < nr_bufs; i++)
+{
+    memset(&v4l2_buffer, 0, sizeof(struct v4l2_buffer));
+    v4l2_buffer.index = i; //想要放入队列的缓存
+    v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    v4l2_buffer.memory = V4L2_MEMORY_MMAP;    
+
+    ret = ioctl(fd, VIDIOC_QBUF, &v4l2_buffer);
+    if(ret < 0)
+    {
+        printf("Unable to queue buffer.\n");
+        return -1;
+    }
+}
+
+step 6：打开设备
+enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+if (ioctl(fd, VIDIOC_STREAMON, &type) < 0)
+{
+    printf("ERR(%s):VIDIOC_STREAMON failed\n", __func__);
+    return -1;
+}
+
+step 7：读取数据
+获取图像数据其实就是一个不断地入队列和出队列地过程，在出队列前要调用poll等待数据准备完成
+
+1.poll
+
+struct pollfd poll_fds[1];
+
+poll_fds[0].fd = fd;
+poll_fds[0].events = POLLIN; //等待可读
+
+poll(poll_fds, 1, 10000);
+
+2.出队列
+
+struct v4l2_buffer buffer;
+
+buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+buffer.memory = V4L2_MEMORY_MMAP;
+
+if (ioctl(fd, VIDIOC_DQBUF, &buffer) < 0)
+{
+    printf("ERR(%s):VIDIOC_DQBUF failed, dropped frame\n", __func__);
+    return -1;
+}
+
+出队列后得到了缓存的下标buffer.index，然后找到对饮的缓存，通过映射过后的地址进行数据的读取
+
+3.入队列
+
+再数据读取完成后，要将buf重新放入队列中
+
+struct v4l2_buffer v4l2_buf;
+
+v4l2_buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+v4l2_buf.memory = V4L2_MEMORY_MMAP;
+v4l2_buf.index = i; //指定buf
+
+if (ioctl(fd, VIDIOC_QBUF, &v4l2_buf) < 0)
+{
+    printf("ERR(%s):VIDIOC_QBUF failed\n", __func__);
+    return -1;
+}
+
+读取数据就是在上面这三步一直不断地循环
+
+step 8：关闭设备
+1.关闭设备
+
+enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+if (ioctl(fd, VIDIOC_STREAMOFF, &type) < 0)
+{
+    printf("ERR(%s):VIDIOC_STREAMOFF failed\n", __func__);
+    return -1;
+}
+
+2.取消映射
+
+for(i = 0; i < nr_bufs; ++i)
+    munmap(buf[i].addr, buf[i]->length);
+
+关闭文件描述符
+
+close(fd);
+1
+libv4l2
+v4l2设备操作起来还是比较繁琐的，为此我对其进行了封装，写了一套库，使用起来更加方便，可以从这里libv4l2获取
+
+其中附带一个实例example_cature，通过capture /dev/video0运行程序采集一张YUYV格式的图片，采集后得到了pic.yuv，可以通过ffplay查看ffplay -pixel_format yuyv422 -f rawvideo -video_size 640x480 pic.yuv，效果图如下
+
+
+
+ 
+
+四、v4l2采集图像在frame buffer显示
+如何将采集图像在frame buff上显示？
+
+1.转换图像格式，将yuv格式转换成frame buff可以接收的rgb格式
+2.操作frame buff，通过映射frame buff的显存到用户空间，直接写显存就可以显示图像
+具体的实现过程这里就不详细说了，下面给出一个例子，点击这里example_video2lcd获取
+
+执行make编译后可以得到video2lcd，执行video2lcd /dev/video0
+
+运行效果如下
+
+
+
+ 
+
+五、v4l2采集图像使用Qt显示
+如何使用qt显示，道理跟在frame buff上显示是一样的，都是采集，转化格式，显示，只是在显示部分不同而已，这里给出一个例子，点击这里example_qt获取
+
+运行效果如下
+
+
+
+ 
+
+文章知识点与官方知识档案匹配，可进一步学习相关知识
+CS入门技能树Linux入门初识Linux23059 人正在系统学习中
+
+bobuddy
+关注
+
+6
+
+
+38
+
+0
+
+专栏目录
+v4l2和opencv
+10-06
+应用程序通过V4L2接口采集视频数据步骤 打开视频设备文件，通过视频采集的参数初始化，通过V4L2接口设置视频图像属性。 申请若干视频采集的帧缓存区，并将这些帧缓冲区从内核空间映射到用户空间，便于应用程序读取/处理视频数据。 将申请到的帧缓冲区在视频采集输入队列排队，并启动视频采集。 驱动开始视频数据的采集，应用程序从视频采集输出队列中取出帧缓冲区，处理后，将帧缓冲区重新放入视频采集输入队列，循环往复采集连续的视频数据。
+Linux之V4L2基础编程-内存映射
+11-14
+详细介绍使用mmap实现V4L2视频处理机制，包括具体流程，部分参考代码，原理讲解，相信对初学同学有一定帮助
+V4L2简介_杀不死的进程的博客
+11-20
+linux/drivers/media/video/Ml86v7667.c中ml86v7667_priv结构体”重载”了v4l2_subdev: struct ml86v7667_priv { struct v4l2_subdev sd; struct v4l2_ctrl_handler hdl; v4l2_std_id std; }; v4l2_device与V4L2框架的绑定:通过调...
+学习Camera之——V4L2视频输入框架概述_liujun3512159的博客-CSDN...
+11-19
+如果v4l2_device 的 name 成员为空的话,就按照 dev 成员的名称来命名,如果 dev 成员 也为空的话,就必须在注册 v4l2_device 之前设置它的 name 成员。可以使用 v4l2_device_set_name 函数来设置 name 成员,该函数会基于驱动名以及...
+【V4L2】学习资料
+最新发布
+白手梦想家的专栏
+ 12
+V4L2学习资料
+V4L2框架学习
+weixin_43482965的博客
+ 433
+V4L2框架学习
+V4L2框架_麻辣小新的博客_v4l2
+11-13
+视频设备会以字符设备cdev的形式呈现,v4l2_device是整个v4l2的核心以及管理者,video_device不是一个instance,而是一个融合数据结构,它包含有cdev和v4l2_device数据结构并将他们关联起来,video_register_device()函数来实现的。 ps:v4l2_devi...
+v4l2驱动框架简介_hqmo的博客
+11-19
+v4l2_async_notifier:用于子设备的异步注册,subdev子设备的注册通常和controler部分设备的注册时分开的,controler部分需要通过v4l2_async_notifier查找匹配子设备并将其注册到v4l2_device进行统一管理;其匹配规则可以通过设备名称、自定义函数、i2...
+linux之V4L2摄像头应用流程
+u014583317的博客
+ 196
+ 对于v4l2，上次是在调试收音机驱动的时候用过，其他也就只是用i2c配置一些寄存器就可以了。那时只是粗粗的了解了，把收音机当作v4l2的设备后会在/dev目录下生成一个radio的节点。然后就可以操作了。后来就没怎么接触了。这周，需要调试下usb的摄像头。因为有问题，所以就要跟进，于是也就要开始学习下linux的v4l2了。看到一篇很不错的文章，下面参考这篇文章，加上自己的一些见解，做一些总结把。  Video for Linuxtwo(Video4Linux2)简称V4L2，是V4L的改进版。V4L2是
+基于Linux视频驱动接口V4L2视频采集编程
+07-30
+基于Linux视频驱动接口V4L2视频采集编程
+V4L2介绍_静思心远的博客_v4l2
+11-9
+VIDIOC_QUERYCAP,structv4l2_capabilityv4l2_std_id std;do{ret=ioctl(fd,VIDIOC_QUERYSTD,&std);}while(ret==-1&&errno==EAGAIN);switch(std){caseV4L2_STD_NTSC://……caseV4L2_STD_PAL://……}3.选择视频输入,一个视频设备...
+V4L2 基本知识和框架_zmjames2000的博客
+11-18
+v4l2-common.c //在Linux操作系统体系采用低级别的操作一套设备structures/vectors的通用视频设备接口。 //此文件将替换videodev.c的文件配备常规的内核分配。 v4l2-device.c //V4L2的设备支持。注册v4l2_device ...
+Linux v4l2编程（摄像头信息采集）
+sunxiaopengsun的专栏
+ 123
+https://www.cnblogs.com/edver/p/7749628.html
+Linux应用开发【第七章】摄像头V4L2编程应用开发
+韦东山嵌入式专栏
+ 1786
+文章目录7 摄像头V4L2编程应用开发7.1 V4L2简介7.2 V4L2视频采集原理7.3 V4L2程序实现流程7.4 V4L2程序实例7.4.1 打开设备7.4.2 查询设备属性7.4.3 显示所有支持的格式7.4.4 设置图像帧格式7.4.5 申请缓冲区7.4.6 将申请的缓冲帧从内核空间映射到用户空间7.4.7 将申请的缓冲帧放入队列，并启动数据流7.4.8 启动捕捉图像数据7.4.9 出列采集的帧缓冲，并处理图像数据，然后再将数据帧入列7.4.10 停止捕捉图像数据 7 摄像头V4L2编程应用开发
+V4L2驱动框架详解_代码撸起的博客
+11-19
+1. V4L2框架概述 1.1 v4l2设备应用层流程 1.2 内核V4L2模块 2 2. video_device 2.1图像处理模块 2.2 video注册流程 3. videobuf2 3.1 与video device的关系: 3.2 buffer类型 3.3 vb2_ops回调函数 ...
+V4L2详解_光利繁华的背后的博客
+11-17
+1、Video4linux2(简称V4L2),是linux中关于视频设备的内核驱动。在Linux中,视频设备是设备文件,可以像访问普通文件一样对其进行读写,摄像头在/dev/video0下 2、videos的操作 1.打开设备文件。 int fd=open(”/dev/video0″,O_RDWR...
+【Linux系统编程应用】 V4L2编程基础（一）
+嵌入式开发工程师---欢迎大家一起交流
+ 1099
+1. 什么是V4L2 V4L2(Video For Linux Two) 是内核提供给应用程序访问音、视频驱动的统一接口。2. 编程步骤 打开设备－> 检查和设置设备属性－> 设置帧格式－> 设置一种输入输出方法（缓冲 区管理）－> 循环获取数据－> 关闭设备。3. 设备的打开和关闭 相关代码如下： 4. 查询设备属性相关方法如下： int ioctl(int fd, int request, s
+v4l2应用框架-摄像头v4l2编程(01)_概述
+weixin_42581177的博客
+ 204
+Video for linux 2（简称V4L2），是linux中关于视频设备的内核驱动。(文件编程接口) 它也是 linux操作系统下用于采集图片、视频和音频数据的 API接口，配合适当的视频采集设备和相应的驱动程序；
+V4L2下摄像头的详细参数调整_liuqingsongmsdn2014的博客
+11-17
+('V', 21, struct v4l2_streamparm) #define VIDIOC_S_PARM _IOWR('V', 22, struct v4l2_streamparm) #define VIDIOC_G_STD _IOR('V', 23, v4l2_std_id) #define VIDIOC_S_STD _IOW('V', 24, v4l2_std_id) #...
+linux v4l2 应用编程
+klp1358484518的博客
+ 238
+linux应用编程v4l2学习笔记
+linux v4l2编程
+jklinux的博客
+ 2655
+参考文档: https://linuxtv.org/downloads/legacy/video4linux/API/V4L2_API/spec-single/v4l2.htmlv4l2 : video for linux api two version //也就是linux系统下视频设备驱动好后，应用程序怎样调用相关的视频设备的编程接口 视频设备： 摄像头， 硬件编解码设备， 图形加速等。
+Linux应用程序开发笔记：V4L2应用层编程流程
+u010018991的博客
+ 522
+代码示例： 单平面示例： https://linuxtv.org/downloads/v4l-dvb-apis/uapi/v4l/capture.c.html 多平面示例： https://blog.csdn.net/airk000/article/details/25033269 https://github.com/FFmpeg/FFmpeg https://githu...
+QT入门第八天音视频Linux中的V4L2摄像头编程
+m0_45463480的博客
+ 1591
+音视频\1.V4L2摄像头编程\代码，图文并茂，Linux/C/C++语言实现，*万多字，多分复用使用，RGB和YUV转换算法，已经进行到第八天了，抓紧学习
+linux V4L2子系统——v4l2架构（7）之V4L2应用编程
+枫潇潇
+ 262
+V4L2子系统向上提供了很多访问Video设备的接口，应用程序可以通过系统调用访问Video设备。但由于Video设备千差万别，很少有设备驱动程序能支持所有的接口功能，因此在使用之前，需要了解设备驱动程序支持的功能。...
+【音视频】V4L2摄像头应用编程
+只要思想不滑坡，想法总比问题多。
+ 774
+V4L2全称是Video for Linux two（Video4Linux2），是V4L2改进衍生版本。V4L2是linux操作系统下的一个标注化的音频、视频设备驱动框架，向下屏蔽底层设备的差异，向上提供标准统一的访问接口，提高用户在音视频方面的应用开发效率。
+和菜鸟一起学linux之V4L2摄像头应用流程
+Stoneshen的博客
+ 686
+转载自：http://blog.csdn.net/eastmoon502136/article/details/8190262东月之神 大神的，很有用，保存一下。
+“相关推荐”对你有帮助么？
+
+非常没帮助
+
+没帮助
+
+一般
+
+有帮助
+
+非常有帮助
+©️2022 CSDN 皮肤主题：大白 设计师：CSDN官方博客 返回首页
+关于我们
+招贤纳士
+商务合作
+寻求报道
+
+400-660-0108
+
+kefu@csdn.net
+
+在线客服
+工作时间 8:30-22:00
+公安备案号11010502030143
+京ICP备19004658号
+京网文〔2020〕1039-165号
+经营性网站备案信息
+北京互联网违法和不良信息举报中心
+家长监护
+网络110报警服务
+中国互联网举报中心
+Chrome商店下载
+账号管理规范
+版权与免责声明
+版权申诉
+出版物许可证
+营业执照
+©1999-2022北京创新乐知网络技术有限公司
+
+bobuddy
+码龄10年
+ 暂无认证
+215
+原创
+1万+
+周排名
+1209
+总排名
+211万+
+访问
+
+等级
+1万+
+积分
+1966
+粉丝
+1050
+获赞
+144
+评论
+8211
+收藏
+持之以恒
+1024勋章
+笔耕不辍
+勤写标兵
+私信
+关注
+搜博主文章
+
+热门文章
+分析锂电池充放电保护电路的特点及工作原理  49207
+USB-PD3.0(Power Delivery)充电协议  42338
+USB 2.0 A型、B型、Mini和Micro接口 type-c 定义及封装  35522
+UVC摄像头开发（一）  33302
+WIFI4-5-6 区别  32227
+分类专栏
+
+晶振
+4篇
+
+人脸识别
+1篇
+
+CTP
+4篇
+
+通信基础
+38篇
+
+linux
+169篇
+
+I2C
+8篇
+
+DC-DC
+16篇
+
+测试仪器
+1篇
+
+AXI
+1篇
+
+ARM
+8篇
+
+固件
+1篇
+
+SAW
+1篇
+
+时钟
+1篇
+
+摄像头
+20篇
+
+EMMC
+10篇
+
+rfg
+2篇
+
+C
+
+C语言
+1篇
+
+RFID
+5篇
+
+lcd
+25篇
+
+mipi
+2篇
+
+QUCALCOMM
+19篇
+
+USB
+15篇
+
+接口协议
+3篇
+
+电路设计
+6篇
+
+TDMA NOISE
+1篇
+
+对讲机协议
+2篇
+
+GNSS
+7篇
+
+FPC
+1篇
+
+EMC
+17篇
+
+type-c 耳机
+1篇
+
+安规
+1篇
+
+交流电压
+1篇
+
+ESD
+3篇
+
+激光电视
+1篇
+
+电子元器件
+6篇
+
+电路基础
+1篇
+
+RF
+3篇
+
+耳机
+1篇
+
+编程基础
+7篇
+
+通信协议
+10篇
+
+手机内存接口
+1篇
+
+汽车电子
+20篇
+
+GPS
+13篇
+
+XML
+1篇
+
+数字电路基础
+3篇
+
+室内定位技术
+3篇
+
+天线
+4篇
+
+无人机
+2篇
+
+图传技术
+1篇
+
+TV
+1篇
+
+QC快充协议
+2篇
+
+音频接口
+1篇
+
+IC测试
+2篇
+
+AC-DC
+1篇
+
+IC芯片设计
+1篇
+
+TCP/IP
+7篇
+
+信号链芯片
+1篇
+
+STM32
+1篇
+
+可靠性设计
+4篇
+
+内存测试
+
+NFC
+1篇
+
+基带模块
+3篇
+
+物联网IOT
+2篇
+
+AT命令
+1篇
+
+LTE 
+5篇
+
+WIFI
+1篇
+
+以太网-POE
+2篇
+
+自动驾驶SAE
+1篇
+
+BT
+4篇
+
+开发流程
+1篇
+
+SIM
+1篇
+
+tool
+1篇
+
+传感器
+1篇
+
+数字信号编码
+1篇
+
+数字通信
+
+Modem 模块
+13篇
+
+PCB
+1篇
+
+IPC-网络摄像头
+3篇
+
+M.2 
+2篇
+
+FPGA
+1篇
+
+makefile
+8篇
+
+JT/T808协议
+1篇
+
+IC
+1篇
+
+移动开发
+332篇
+
+编程语言
+6篇
+
+充电管理
+17篇
+
+嵌入式开发
+45篇
+
+车载ADAS -CAMERA
+34篇
+
+MTK 驱动
+110篇
+
+usb摄像头
+10篇
+
+程序人生
+
+手机功耗
+8篇
+
+手机音频
+5篇
+
+高通驱动
+
+Android
+52篇
+
+最新评论
+MT6771_MT6762_ISP_Tuning_Introduction
+会抖腿的鱼: DBS的全称是什么呢？
+
+i2c设备与驱动匹配过程
+qq_20370181: 大神你好，你这篇文章讲得很详细，给你点赞，不过我有一个疑问，你这里面讲的匹配过程是LINUX增加了设备树后面的版本的玩法吗？如果是的话，为何没见提到过设备树啊？
+
+共模电感原理及选型
+qq_43563849: 好文章，就这篇文章把共模电感讲透了表情包
+
+Android手机直播（三）声音采集
+代码牛: 我的设备在通话过程中，操作设备机器的按钮时，按钮的声音也会传递到对面 。造成杂音
+
+常见监控摄像头专业术语（码流、分辨率、帧率）详解
+优优的大树: 非常好，学到很多知识!
+
+您愿意向朋友推荐“博客详情页”吗？
+
+强烈不推荐
+
+不推荐
+
+一般般
+
+推荐
+
+强烈推荐
+最新文章
+晶振的选型设计
+人脸识别技术
+TP贴合方式
+2022
+11月
+5篇
+10月
+14篇
+09月
+18篇
+08月
+4篇
+06月
+21篇
+05月
+7篇
+04月
+5篇
+03月
+16篇
+02月
+16篇
+01月
+24篇
+2021年344篇2020年212篇2019年227篇2018年120篇2017年79篇2016年51篇
+
+
+
+
+举报
+
